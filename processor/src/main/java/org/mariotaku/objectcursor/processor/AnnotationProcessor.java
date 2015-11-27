@@ -20,20 +20,31 @@
 package org.mariotaku.objectcursor.processor;
 
 
-import org.mariotaku.library.objectcursor.CursorField;
-import org.mariotaku.library.objectcursor.CursorObject;
+import org.mariotaku.library.objectcursor.annotation.AfterCursorObjectCreated;
+import org.mariotaku.library.objectcursor.annotation.BeforeCursorObjectCreated;
+import org.mariotaku.library.objectcursor.annotation.CursorField;
+import org.mariotaku.library.objectcursor.annotation.CursorObject;
 
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.Filer;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.tools.Diagnostic;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
+import javax.tools.JavaFileObject;
+import java.io.IOException;
+import java.io.Writer;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
 public class AnnotationProcessor extends AbstractProcessor {
+
+
     @Override
     public Set<String> getSupportedAnnotationTypes() {
         HashSet<String> set = new HashSet<>();
@@ -49,15 +60,43 @@ public class AnnotationProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+        HashMap<Name, CursorIndicesClassInfo> cursorObjectClasses = new HashMap<>();
+        final Elements elements = processingEnv.getElementUtils();
+        final Types types = processingEnv.getTypeUtils();
         for (Element element : roundEnv.getElementsAnnotatedWith(CursorObject.class)) {
             final TypeElement type = (TypeElement) element;
-            processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Processing class %s" + type.getQualifiedName());
+            final CursorIndicesClassInfo classInfo = new CursorIndicesClassInfo(elements, type);
+            classInfo.setBeforeCreated(roundEnv.getElementsAnnotatedWith(BeforeCursorObjectCreated.class));
+            classInfo.setAfterCreated(roundEnv.getElementsAnnotatedWith(AfterCursorObjectCreated.class));
+            cursorObjectClasses.put(type.getQualifiedName(), classInfo);
         }
         for (Element element : roundEnv.getElementsAnnotatedWith(CursorField.class)) {
             final VariableElement var = (VariableElement) element;
             final TypeElement type = (TypeElement) var.getEnclosingElement();
-            processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Processing field " + var.getSimpleName()
-                    + " of type " + type.getSimpleName());
+            final CursorIndicesClassInfo.ObjectClassInfo objectClassInfo = CursorIndicesClassInfo.getObjectClass(elements,
+                    type);
+            final CursorIndicesClassInfo classInfo = cursorObjectClasses.get(type.getQualifiedName());
+            if (classInfo == null) {
+                throw new NullPointerException(objectClassInfo.getObjectClassNameString() + " must be annotated with @"
+                        + CursorObject.class.getSimpleName());
+            }
+            CursorIndicesClassInfo.FieldInfo fieldInfo = classInfo.addField(var);
+        }
+
+        final Filer filer = processingEnv.getFiler();
+        for (CursorIndicesClassInfo classInfo : cursorObjectClasses.values()) {
+            JavaFileObject fileObj;
+            try {
+                fileObj = filer.createSourceFile(classInfo.getCursorIndexQualifiedName());
+            } catch (IOException e) {
+                throw new IllegalStateException(e);
+            }
+            try (Writer writer = fileObj.openWriter()) {
+                classInfo.writeCursorIndexClassFile(writer, types);
+                writer.flush();
+            } catch (IOException e) {
+                //TODO show error
+            }
         }
         return false;
     }

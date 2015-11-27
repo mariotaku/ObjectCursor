@@ -1,4 +1,4 @@
-package org.mariotaku.library.objectcursor;
+package org.mariotaku.library.objectcursor.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -8,7 +8,7 @@ import java.lang.annotation.Target;
 /**
  * Created by mariotaku on 15/11/27.
  */
-@Target(ElementType.TYPE)
+@Target(ElementType.METHOD)
 @Retention(RetentionPolicy.CLASS)
-public @interface CursorObject {
+public @interface BeforeCursorObjectCreated {
 }

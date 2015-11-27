@@ -20,7 +20,6 @@
 package org.mariotaku.library.objectcursor;
 
 import android.database.Cursor;
-import android.provider.BaseColumns;
 import android.util.SparseArray;
 
 import java.util.AbstractList;
@@ -84,14 +83,9 @@ public class ObjectCursor<E> extends AbstractList<E> {
         return mCursor;
     }
 
-    public static abstract class CursorIndices<T> {
+    public interface CursorIndices<T> {
 
-        public final int _id;
+        T newObject(Cursor cursor);
 
-        public CursorIndices(Cursor cursor) {
-            _id = cursor.getColumnIndex(BaseColumns._ID);
-        }
-
-        public abstract T newObject(Cursor cursor);
     }
 }
