@@ -30,7 +30,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.tools.Diagnostic;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -44,8 +43,8 @@ public class AnnotationProcessor extends AbstractProcessor {
     }
 
     @Override
-    public Set<String> getSupportedOptions() {
-        return Collections.singleton(SourceVersion.latestSupported().name());
+    public SourceVersion getSupportedSourceVersion() {
+        return SourceVersion.latestSupported();
     }
 
     @Override
