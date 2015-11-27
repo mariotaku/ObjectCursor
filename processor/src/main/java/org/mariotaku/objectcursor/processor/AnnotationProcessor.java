@@ -66,21 +66,27 @@ public class AnnotationProcessor extends AbstractProcessor {
         for (Element element : roundEnv.getElementsAnnotatedWith(CursorObject.class)) {
             final TypeElement type = (TypeElement) element;
             final CursorIndicesClassInfo classInfo = new CursorIndicesClassInfo(elements, type);
-            classInfo.setBeforeCreated(roundEnv.getElementsAnnotatedWith(BeforeCursorObjectCreated.class));
-            classInfo.setAfterCreated(roundEnv.getElementsAnnotatedWith(AfterCursorObjectCreated.class));
             cursorObjectClasses.put(type.getQualifiedName(), classInfo);
+        }
+        for (Element element : roundEnv.getElementsAnnotatedWith(BeforeCursorObjectCreated.class)) {
+            final Element var = element;
+            final TypeElement type = (TypeElement) var.getEnclosingElement();
+            final CursorIndicesClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
+            classInfo.addBeforeCreated(var);
+
+        }
+        for (Element element : roundEnv.getElementsAnnotatedWith(AfterCursorObjectCreated.class)) {
+            final Element var = element;
+            final TypeElement type = (TypeElement) var.getEnclosingElement();
+            final CursorIndicesClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
+            classInfo.addAfterCreated(var);
+
         }
         for (Element element : roundEnv.getElementsAnnotatedWith(CursorField.class)) {
             final VariableElement var = (VariableElement) element;
             final TypeElement type = (TypeElement) var.getEnclosingElement();
-            final CursorIndicesClassInfo.ObjectClassInfo objectClassInfo = CursorIndicesClassInfo.getObjectClass(elements,
-                    type);
-            final CursorIndicesClassInfo classInfo = cursorObjectClasses.get(type.getQualifiedName());
-            if (classInfo == null) {
-                throw new NullPointerException(objectClassInfo.getObjectClassNameString() + " must be annotated with @"
-                        + CursorObject.class.getSimpleName());
-            }
-            CursorIndicesClassInfo.FieldInfo fieldInfo = classInfo.addField(var);
+            final CursorIndicesClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
+            classInfo.addField(var);
         }
 
         final Filer filer = processingEnv.getFiler();
@@ -99,5 +105,17 @@ public class AnnotationProcessor extends AbstractProcessor {
             }
         }
         return false;
+    }
+
+    private CursorIndicesClassInfo getOrThrow(HashMap<Name, CursorIndicesClassInfo> cursorObjectClasses, Elements elements,
+                                              TypeElement type) {
+        final CursorIndicesClassInfo classInfo = cursorObjectClasses.get(type.getQualifiedName());
+        if (classInfo == null) {
+            final CursorIndicesClassInfo.ObjectClassInfo objectClassInfo = CursorIndicesClassInfo.getObjectClass(elements,
+                    type);
+            throw new NullPointerException(objectClassInfo.getObjectClassNameString() + " must be annotated with @"
+                    + CursorObject.class.getSimpleName());
+        }
+        return classInfo;
     }
 }

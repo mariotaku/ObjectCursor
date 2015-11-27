@@ -28,7 +28,7 @@ public class CursorIndicesClassInfo {
     private final Map<String, ClassName> converterMaps;
     private final Set<TypeName> customTypes;
     private final TypeElement type;
-    private Set<? extends Element> beforeCreated, afterCreated;
+    private Set<Element> beforeCreated, afterCreated;
 
     public CursorIndicesClassInfo(Elements elements, TypeElement type) {
         this.type = type;
@@ -36,6 +36,8 @@ public class CursorIndicesClassInfo {
         fieldInfoList = new ArrayList<>();
         customTypes = new HashSet<>();
         converterMaps = new HashMap<>();
+        beforeCreated = new HashSet<>();
+        afterCreated = new HashSet<>();
     }
 
     @Override
@@ -260,12 +262,12 @@ public class CursorIndicesClassInfo {
         }
     }
 
-    public void setBeforeCreated(Set<? extends Element> elements) {
-        beforeCreated = elements;
+    public void addBeforeCreated(Element element) {
+        beforeCreated.add(element);
     }
 
-    public void setAfterCreated(Set<? extends Element> elements) {
-        afterCreated = elements;
+    public void addAfterCreated(Element element) {
+        afterCreated.add(element);
     }
 
     static class ObjectClassInfo {
