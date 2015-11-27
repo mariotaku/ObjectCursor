@@ -1,6 +1,6 @@
 allprojects {
     group = 'com.github.mariotaku.ObjectCursor'
-    version = '0.9.1-SNAPSHOT'
+    version = '0.9.1'
 }
 
 subprojects {
