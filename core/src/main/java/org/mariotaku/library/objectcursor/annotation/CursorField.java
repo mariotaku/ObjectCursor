@@ -18,5 +18,7 @@ public @interface CursorField {
 
     String indexFieldName() default "";
 
+    boolean excludeWrite() default false;
+
     Class<? extends CursorFieldConverter> converter() default EmptyCursorFieldConverter.class;
 }

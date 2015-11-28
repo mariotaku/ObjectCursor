@@ -19,6 +19,7 @@
 
 package org.mariotaku.library.objectcursor;
 
+import android.content.ContentValues;
 import android.database.Cursor;
 import android.util.SparseArray;
 
@@ -87,5 +88,12 @@ public class ObjectCursor<E> extends AbstractList<E> {
 
         T newObject(Cursor cursor);
 
+        void parseFields(T instance, Cursor cursor);
+
+        void callBeforeCreated(T instance);
+
+        void callAfterCreated(T instance);
+
     }
+
 }

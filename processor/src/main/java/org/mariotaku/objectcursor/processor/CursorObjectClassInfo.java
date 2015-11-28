@@ -1,0 +1,146 @@
+package org.mariotaku.objectcursor.processor;
+
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.TypeName;
+import org.mariotaku.library.objectcursor.annotation.CursorField;
+import org.mariotaku.library.objectcursor.annotation.CursorObject;
+import org.mariotaku.library.objectcursor.converter.EmptyCursorFieldConverter;
+
+import javax.lang.model.element.*;
+import javax.lang.model.type.MirroredTypeException;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
+import java.util.*;
+
+/**
+ * Created by mariotaku on 15/11/27.
+ */
+public class CursorObjectClassInfo {
+    public static final String VALUES_CREATOR_SUFFIX = "ValuesCreator";
+    static final ClassName EMPTY_CONVERTER = ClassName.get(EmptyCursorFieldConverter.class);
+    final TypeElement objectType;
+    final ClassName objectClassName;
+
+    final List<CursorFieldInfo> fieldInfoList;
+    final Map<String, ClassName> converterMaps;
+    final Set<TypeName> customTypes;
+    final boolean wantValuesCreator;
+    Set<Element> beforeCreated, afterCreated;
+
+    public CursorObjectClassInfo(Elements elements, TypeElement objectType) {
+        this.objectType = objectType;
+        objectClassName = ClassName.get(objectType);
+        wantValuesCreator = objectType.getAnnotation(CursorObject.class).valuesCreator();
+        fieldInfoList = new ArrayList<>();
+        customTypes = new HashSet<>();
+        converterMaps = new HashMap<>();
+        beforeCreated = new HashSet<>();
+        afterCreated = new HashSet<>();
+    }
+
+    public static ClassName getSuffixedClassName(Elements elements, TypeElement cls, String suffix) {
+        final String packageName = String.valueOf(elements.getPackageOf(cls).getQualifiedName());
+        final String binaryName = String.valueOf(elements.getBinaryName(cls));
+        return ClassName.get(packageName, binaryName.substring(packageName.length() + 1) + suffix);
+    }
+
+    public ClassName getConverter(String name) {
+        return converterMaps.get(name);
+    }
+
+    public CursorFieldInfo addField(VariableElement field) {
+        if (field.getKind() != ElementKind.FIELD)
+            throw new IllegalArgumentException("@" + CursorField.class.getSimpleName() + " is only applicable for fields");
+        final Set<Modifier> modifiers = field.getModifiers();
+        if (modifiers.contains(Modifier.STATIC)) {
+            throw new IllegalArgumentException("static field is not allowed");
+        }
+        if (modifiers.contains(Modifier.PRIVATE)) {
+            throw new IllegalArgumentException("private field is not allowed");
+        }
+        if (modifiers.contains(Modifier.PROTECTED)) {
+            throw new IllegalArgumentException("protected field is not allowed");
+        }
+        final CursorFieldInfo fieldInfo = new CursorFieldInfo(field);
+
+        ClassName name;
+        try {
+            name = (ClassName) TypeName.get(fieldInfo.annotation.converter());
+        } catch (MirroredTypeException mte) {
+            name = (ClassName) TypeName.get(mte.getTypeMirror());
+        }
+
+        if (!EMPTY_CONVERTER.equals(name)) {
+            // Custom data type
+            converterMaps.put(fieldInfo.objectFieldName, name);
+            customTypes.add(ClassName.get(fieldInfo.type));
+        }
+        fieldInfoList.add(fieldInfo);
+        return fieldInfo;
+    }
+
+    public TypeMirror getSuperclass() {
+        return objectType.getSuperclass();
+    }
+
+    public String getPackageName() {
+        return objectClassName.packageName();
+    }
+
+    public void addBeforeCreated(Element element) {
+        beforeCreated.add(element);
+    }
+
+    public void addAfterCreated(Element element) {
+        afterCreated.add(element);
+    }
+
+    public Set<ClassName> customConverters() {
+        return new HashSet<>(converterMaps.values());
+    }
+
+    public Set<TypeName> customTypes() {
+        return customTypes;
+    }
+
+    public Set<Element> beforeCreated() {
+        if (beforeCreated == null) return Collections.emptySet();
+        return beforeCreated;
+    }
+
+    public Set<Element> afterCreated() {
+        if (afterCreated == null) return Collections.emptySet();
+        return afterCreated;
+    }
+
+    public static class CursorFieldInfo {
+
+        final String objectFieldName;
+        final String indexFieldName;
+        final String columnName;
+        final CursorField annotation;
+
+        final TypeMirror type;
+
+        public CursorFieldInfo(VariableElement field) {
+            type = field.asType();
+            annotation = field.getAnnotation(CursorField.class);
+            columnName = annotation.value();
+            objectFieldName = String.valueOf(field.getSimpleName());
+            if (annotation.indexFieldName().length() > 0) {
+                indexFieldName = annotation.indexFieldName().replace('.', '_');
+            } else {
+                indexFieldName = objectFieldName;
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "FieldInfo{" +
+                    "type=" + type +
+                    ", columnName='" + columnName + '\'' +
+                    '}';
+        }
+
+    }
+}

@@ -35,9 +35,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import javax.tools.JavaFileObject;
 import java.io.IOException;
-import java.io.Writer;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
@@ -60,61 +58,54 @@ public class AnnotationProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        HashMap<Name, CursorIndicesClassInfo> cursorObjectClasses = new HashMap<>();
+        HashMap<Name, CursorObjectClassInfo> cursorObjectClasses = new HashMap<>();
         final Elements elements = processingEnv.getElementUtils();
         final Types types = processingEnv.getTypeUtils();
         for (Element element : roundEnv.getElementsAnnotatedWith(CursorObject.class)) {
             final TypeElement type = (TypeElement) element;
-            final CursorIndicesClassInfo classInfo = new CursorIndicesClassInfo(elements, type);
+            final CursorObjectClassInfo classInfo = new CursorObjectClassInfo(elements, type);
             cursorObjectClasses.put(type.getQualifiedName(), classInfo);
         }
         for (Element element : roundEnv.getElementsAnnotatedWith(BeforeCursorObjectCreated.class)) {
-            final Element var = element;
-            final TypeElement type = (TypeElement) var.getEnclosingElement();
-            final CursorIndicesClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
-            classInfo.addBeforeCreated(var);
+            final TypeElement type = (TypeElement) element.getEnclosingElement();
+            final CursorObjectClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
+            classInfo.addBeforeCreated(element);
 
         }
         for (Element element : roundEnv.getElementsAnnotatedWith(AfterCursorObjectCreated.class)) {
-            final Element var = element;
-            final TypeElement type = (TypeElement) var.getEnclosingElement();
-            final CursorIndicesClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
-            classInfo.addAfterCreated(var);
+            final TypeElement type = (TypeElement) element.getEnclosingElement();
+            final CursorObjectClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
+            classInfo.addAfterCreated(element);
 
         }
         for (Element element : roundEnv.getElementsAnnotatedWith(CursorField.class)) {
             final VariableElement var = (VariableElement) element;
             final TypeElement type = (TypeElement) var.getEnclosingElement();
-            final CursorIndicesClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
+            final CursorObjectClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
             classInfo.addField(var);
         }
 
         final Filer filer = processingEnv.getFiler();
-        for (CursorIndicesClassInfo classInfo : cursorObjectClasses.values()) {
-            JavaFileObject fileObj;
+        for (CursorObjectClassInfo classInfo : cursorObjectClasses.values()) {
             try {
-                fileObj = filer.createSourceFile(classInfo.getCursorIndexQualifiedName());
+                CursorIndicesClassGenerator cursorIndicesClassGenerator = new CursorIndicesClassGenerator(classInfo, elements);
+                cursorIndicesClassGenerator.saveCursorIndicesFile(filer, elements, types);
+                if (classInfo.wantValuesCreator) {
+                    ValuesCreatorClassGenerator valuesCreatorClassGenerator = new ValuesCreatorClassGenerator(classInfo, elements);
+                    valuesCreatorClassGenerator.saveValuesCreatorFile(filer, elements, types);
+                }
             } catch (IOException e) {
                 throw new IllegalStateException(e);
-            }
-            try (Writer writer = fileObj.openWriter()) {
-                classInfo.writeCursorIndexClassFile(writer, types);
-                writer.flush();
-            } catch (IOException e) {
-                //TODO show error
             }
         }
         return false;
     }
 
-    private CursorIndicesClassInfo getOrThrow(HashMap<Name, CursorIndicesClassInfo> cursorObjectClasses, Elements elements,
-                                              TypeElement type) {
-        final CursorIndicesClassInfo classInfo = cursorObjectClasses.get(type.getQualifiedName());
+    private CursorObjectClassInfo getOrThrow(HashMap<Name, CursorObjectClassInfo> cursorObjectClasses, Elements elements,
+                                             TypeElement type) {
+        final CursorObjectClassInfo classInfo = cursorObjectClasses.get(type.getQualifiedName());
         if (classInfo == null) {
-            final CursorIndicesClassInfo.ObjectClassInfo objectClassInfo = CursorIndicesClassInfo.getObjectClass(elements,
-                    type);
-            throw new NullPointerException(objectClassInfo.getObjectClassNameString() + " must be annotated with @"
-                    + CursorObject.class.getSimpleName());
+            throw new NullPointerException("Must be annotated with @" + CursorObject.class.getSimpleName());
         }
         return classInfo;
     }
