@@ -49,34 +49,37 @@ public class CursorObjectClassInfo {
     }
 
     public CursorFieldInfo addField(VariableElement field) {
-        if (field.getKind() != ElementKind.FIELD)
-            throw new IllegalArgumentException("@" + CursorField.class.getSimpleName() + " is only applicable for fields");
+        if (field.getKind() != ElementKind.FIELD) throw new AssertionError();
         final Set<Modifier> modifiers = field.getModifiers();
         if (modifiers.contains(Modifier.STATIC)) {
-            throw new IllegalArgumentException("static field is not allowed");
+            throw modifierNotAllowed(Modifier.STATIC, field);
         }
         if (modifiers.contains(Modifier.PRIVATE)) {
-            throw new IllegalArgumentException("private field is not allowed");
+            throw modifierNotAllowed(Modifier.PRIVATE, field);
         }
         if (modifiers.contains(Modifier.PROTECTED)) {
-            throw new IllegalArgumentException("protected field is not allowed");
+            throw modifierNotAllowed(Modifier.PROTECTED, field);
         }
         final CursorFieldInfo fieldInfo = new CursorFieldInfo(field);
 
-        ClassName name;
+        ClassName converterName;
         try {
-            name = (ClassName) TypeName.get(fieldInfo.annotation.converter());
+            converterName = (ClassName) TypeName.get(fieldInfo.annotation.converter());
         } catch (MirroredTypeException mte) {
-            name = (ClassName) TypeName.get(mte.getTypeMirror());
+            converterName = (ClassName) TypeName.get(mte.getTypeMirror());
         }
 
-        if (!EMPTY_CONVERTER.equals(name)) {
+        if (!EMPTY_CONVERTER.equals(converterName)) {
             // Custom data type
-            converterMaps.put(fieldInfo.objectFieldName, name);
+            converterMaps.put(fieldInfo.objectFieldName, converterName);
             customTypes.add(ClassName.get(fieldInfo.type));
         }
         fieldInfoList.add(fieldInfo);
         return fieldInfo;
+    }
+
+    private IllegalArgumentException modifierNotAllowed(Modifier modifier, VariableElement field) {
+        throw new IllegalArgumentException(modifier + " field is not allowed for " + objectClassName + "." + field);
     }
 
     public TypeMirror getSuperclass() {

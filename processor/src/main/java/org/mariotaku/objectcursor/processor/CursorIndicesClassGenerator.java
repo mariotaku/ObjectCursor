@@ -124,6 +124,7 @@ public class CursorIndicesClassGenerator {
     private List<FieldSpec> getIndexFields() {
         List<FieldSpec> fieldSpecs = new ArrayList<>();
         for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+            if (fieldInfo.columnName.isEmpty()) continue;
             fieldSpecs.add(FieldSpec.builder(TypeName.INT, fieldInfo.indexFieldName, Modifier.PUBLIC)
                     .initializer("-1")
                     .build());
@@ -141,6 +142,7 @@ public class CursorIndicesClassGenerator {
         }
 
         for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+            if (fieldInfo.columnName.isEmpty()) continue;
             builder.addStatement("$L = cursor.getColumnIndex($S)", fieldInfo.indexFieldName, fieldInfo.columnName);
         }
 
@@ -210,9 +212,13 @@ public class CursorIndicesClassGenerator {
         }
 
         for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
-            builder.beginControlFlow("if ($L != -1)", fieldInfo.indexFieldName);
-            addSetValueStatement(builder, fieldInfo);
-            builder.endControlFlow();
+            if (fieldInfo.columnName.isEmpty()) {
+                addSetValueStatement(builder, fieldInfo);
+            } else {
+                builder.beginControlFlow("if ($L != -1)", fieldInfo.indexFieldName);
+                addSetValueStatement(builder, fieldInfo);
+                builder.endControlFlow();
+            }
         }
 
         return builder.build();
@@ -254,10 +260,13 @@ public class CursorIndicesClassGenerator {
             final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName);
             if (converterClass == null) {
 
-            } else {
+            } else if (!fieldInfo.columnName.isEmpty()) {
                 builder.addStatement("instance.$L = ($T) $L.parseField(cursor, $L, $L)", fieldInfo.objectFieldName,
                         fieldType, getConverterFieldName(converterClass), fieldInfo.indexFieldName,
                         getConverterFieldName(fieldType));
+            } else {
+                builder.addStatement("instance.$L = ($T) $L.parseField(cursor, $L, $L)", fieldInfo.objectFieldName,
+                        fieldType, getConverterFieldName(converterClass), -1, getConverterFieldName(fieldType));
             }
         }
     }
