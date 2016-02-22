@@ -19,8 +19,8 @@
 
 package org.mariotaku.library.objectcursor;
 
-import android.content.ContentValues;
 import android.database.Cursor;
+import android.database.CursorIndexOutOfBoundsException;
 import android.util.SparseArray;
 
 import java.util.AbstractList;
@@ -50,7 +50,7 @@ public class ObjectCursor<E> extends AbstractList<E> {
             mCache.put(location, object);
             return object;
         }
-        throw new ArrayIndexOutOfBoundsException("length=" + mCursor.getCount() + "; index=" + location);
+        throw new CursorIndexOutOfBoundsException("length=" + mCursor.getCount() + "; index=" + location);
     }
 
     private void ensureCursor() {
@@ -64,6 +64,12 @@ public class ObjectCursor<E> extends AbstractList<E> {
     @Override
     public int size() {
         return mCursor.getCount();
+    }
+
+    @Override
+    public E set(int index, E element) {
+        mCache.put(index, element);
+        return element;
     }
 
     public boolean isClosed() {
