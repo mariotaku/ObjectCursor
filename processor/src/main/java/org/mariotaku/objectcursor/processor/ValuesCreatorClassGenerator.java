@@ -26,15 +26,15 @@ public class ValuesCreatorClassGenerator {
 
     static final ClassName STRING = ClassName.get(String.class);
     private final CursorObjectClassInfo objectClassInfo;
-    private final ClassName indicesClassName;
-    private final String indicesClassNameWithoutPackage;
+    private final ClassName creatorClassName;
+    private final String creatorClassNameWithoutPackage;
 
     ValuesCreatorClassGenerator(CursorObjectClassInfo objectClassInfo, Elements elements) {
         this.objectClassInfo = objectClassInfo;
         final String packageName = String.valueOf(elements.getPackageOf(objectClassInfo.objectType).getQualifiedName());
         final String binaryName = String.valueOf(elements.getBinaryName(objectClassInfo.objectType));
-        indicesClassNameWithoutPackage = binaryName.substring(packageName.length() + 1) + VALUES_CREATOR_SUFFIX;
-        indicesClassName = ClassName.get(packageName, indicesClassNameWithoutPackage);
+        creatorClassNameWithoutPackage = binaryName.substring(packageName.length() + 1) + VALUES_CREATOR_SUFFIX;
+        creatorClassName = ClassName.get(packageName, creatorClassNameWithoutPackage);
     }
 
     private static String getConverterFieldName(TypeName converterClass) {
@@ -42,13 +42,13 @@ public class ValuesCreatorClassGenerator {
     }
 
     void writeContent(Appendable appendable, Elements elements, Types types) throws IOException {
-        final TypeSpec.Builder builder = TypeSpec.classBuilder(indicesClassNameWithoutPackage);
+        final TypeSpec.Builder builder = TypeSpec.classBuilder(creatorClassNameWithoutPackage);
         TypeElement superClass = (TypeElement) types.asElement(objectClassInfo.getSuperclass());
 
-        ClassName parentIndicesClass = null;
-        // Super class has CursorIndex implementation
+        ClassName parentCreatorClass = null;
+        // Super class has ValuesCreator implementation
         if (superClass.getAnnotation(CursorObject.class) != null) {
-            parentIndicesClass = CursorObjectClassInfo.getSuffixedClassName(elements, superClass, VALUES_CREATOR_SUFFIX);
+            parentCreatorClass = CursorObjectClassInfo.getSuffixedClassName(elements, superClass, VALUES_CREATOR_SUFFIX);
         }
 
         builder.addModifiers(Modifier.PUBLIC);
@@ -57,12 +57,7 @@ public class ValuesCreatorClassGenerator {
 
         builder.addFields(getTypeFields());
 
-
-        if (parentIndicesClass != null) {
-            builder.addField(parentIndicesClass, "parentCreator", Modifier.FINAL);
-        }
-
-        builder.addMethod(createWriteToMethod(parentIndicesClass));
+        builder.addMethod(createWriteToMethod(parentCreatorClass));
 
         builder.addMethod(createCreateMethod());
 
@@ -106,15 +101,15 @@ public class ValuesCreatorClassGenerator {
         return fieldSpecs;
     }
 
-    private MethodSpec createWriteToMethod(ClassName parentCreaterClass) {
+    private MethodSpec createWriteToMethod(ClassName parentCreatorClass) {
         final MethodSpec.Builder builder = MethodSpec.methodBuilder("writeTo");
         builder.addModifiers(Modifier.PUBLIC);
         builder.addModifiers(Modifier.STATIC);
         builder.addParameter(objectClassInfo.objectClassName, "instance");
         builder.addParameter(ContentValues.class, "values");
 
-        if (parentCreaterClass != null) {
-            builder.addStatement("parentIndices.writeTo(instance, cursor)");
+        if (parentCreatorClass != null) {
+            builder.addStatement("$T.writeTo(instance, values)", parentCreatorClass);
         }
 
         for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
@@ -172,7 +167,7 @@ public class ValuesCreatorClassGenerator {
 
 
     public void saveValuesCreatorFile(Filer filer, Elements elements, Types types) throws IOException {
-        JavaFileObject fileObj = filer.createSourceFile(indicesClassName.toString());
+        JavaFileObject fileObj = filer.createSourceFile(creatorClassName.toString());
         try (Writer writer = fileObj.openWriter()) {
             writeContent(writer, elements, types);
             writer.flush();
