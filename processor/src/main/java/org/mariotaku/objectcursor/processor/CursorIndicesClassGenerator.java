@@ -3,6 +3,7 @@ package org.mariotaku.objectcursor.processor;
 import android.database.Cursor;
 import com.squareup.javapoet.*;
 import org.mariotaku.library.objectcursor.ObjectCursor;
+import org.mariotaku.library.objectcursor.annotation.CursorField;
 import org.mariotaku.library.objectcursor.annotation.CursorObject;
 import org.mariotaku.library.objectcursor.internal.ParameterizedTypeImpl;
 
@@ -10,6 +11,8 @@ import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.JavaFileObject;
@@ -45,13 +48,6 @@ public class CursorIndicesClassGenerator {
 
     void writeContent(Appendable appendable, Elements elements, Types types) throws IOException {
         final TypeSpec.Builder builder = TypeSpec.classBuilder(indicesClassNameWithoutPackage);
-        TypeElement superClass = (TypeElement) types.asElement(objectClassInfo.getSuperclass());
-
-        ClassName parentIndicesClass = null;
-        // Super class has CursorIndex implementation
-        if (superClass.getAnnotation(CursorObject.class) != null) {
-            parentIndicesClass = CursorObjectClassInfo.getSuffixedClassName(elements, superClass, CURSOR_INDICES_SUFFIX);
-        }
 
         builder.addSuperinterface(ParameterizedTypeName.get(ClassName.get(ObjectCursor.CursorIndices.class),
                 objectClassInfo.objectClassName));
@@ -61,15 +57,31 @@ public class CursorIndicesClassGenerator {
 
         builder.addFields(getTypeFields());
 
+        TypeElement superClass = (TypeElement) types.asElement(objectClassInfo.getSuperclass());
 
-        if (parentIndicesClass != null) {
+        ClassName parentIndicesClass = null;
+        List<String> superFields = null;
+        // Super class has CursorIndex implementation
+        if (superClass.getAnnotation(CursorObject.class) != null) {
+            parentIndicesClass = CursorObjectClassInfo.getSuffixedClassName(elements, superClass, CURSOR_INDICES_SUFFIX);
+
             builder.addField(parentIndicesClass, "parentIndices", Modifier.FINAL);
+
+            superFields = new ArrayList<>();
+
+            for (VariableElement superField : ElementFilter.fieldsIn(superClass.getEnclosedElements())) {
+                if (superField.getAnnotation(CursorField.class) != null) {
+                    superFields.add(String.valueOf(superField.getSimpleName()));
+                }
+            }
+
         }
 
-        builder.addFields(getIndexFields());
+
+        builder.addFields(getIndexFields(superFields));
 
         // Add constructor
-        builder.addMethod(getConstructor(parentIndicesClass));
+        builder.addMethod(getConstructor(parentIndicesClass, superFields));
 
         builder.addMethod(createNewObjectMethod());
 
@@ -121,29 +133,41 @@ public class CursorIndicesClassGenerator {
         return fieldSpecs;
     }
 
-    private List<FieldSpec> getIndexFields() {
+    private List<FieldSpec> getIndexFields(List<String> superFields) {
         List<FieldSpec> fieldSpecs = new ArrayList<>();
+        if (superFields != null)
+            for (String name : superFields) {
+                fieldSpecs.add(FieldSpec.builder(TypeName.INT, name, Modifier.PUBLIC)
+                        .initializer("-1")
+                        .build());
+            }
+
         for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
             if (fieldInfo.columnName.isEmpty()) continue;
             fieldSpecs.add(FieldSpec.builder(TypeName.INT, fieldInfo.indexFieldName, Modifier.PUBLIC)
                     .initializer("-1")
                     .build());
         }
+
         return fieldSpecs;
     }
 
 
-    private MethodSpec getConstructor(ClassName parentIndexClass) {
+    private MethodSpec getConstructor(ClassName parentIndexClass, List<String> superFields) {
         final MethodSpec.Builder builder = MethodSpec.constructorBuilder();
         builder.addModifiers(Modifier.PUBLIC);
         builder.addParameter(Cursor.class, "cursor");
         if (parentIndexClass != null) {
             builder.addStatement("parentIndices = new $T(cursor)", parentIndexClass);
         }
-
+        if (superFields != null) {
+            for (String superField : superFields) {
+                builder.addStatement("this.$L = parentIndices.$L", superField, superField);
+            }
+        }
         for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
             if (fieldInfo.columnName.isEmpty()) continue;
-            builder.addStatement("$L = cursor.getColumnIndex($S)", fieldInfo.indexFieldName, fieldInfo.columnName);
+            builder.addStatement("this.$L = cursor.getColumnIndex($S)", fieldInfo.indexFieldName, fieldInfo.columnName);
         }
 
         return builder.build();
