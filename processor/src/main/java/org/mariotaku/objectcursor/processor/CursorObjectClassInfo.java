@@ -7,6 +7,7 @@ import org.mariotaku.library.objectcursor.annotation.CursorObject;
 import org.mariotaku.library.objectcursor.converter.EmptyCursorFieldConverter;
 
 import javax.lang.model.element.*;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -20,19 +21,21 @@ public class CursorObjectClassInfo {
     static final ClassName EMPTY_CONVERTER = ClassName.get(EmptyCursorFieldConverter.class);
     static final ClassName STRING = ClassName.get(String.class);
 
+    final Elements elements;
     final TypeElement objectType;
-    final ClassName objectClassName;
 
+    final ClassName objectClassName;
     final List<CursorFieldInfo> fieldInfoList;
     final Map<String, ClassName> converterMaps;
     final Set<TypeName> customTypes;
     final boolean wantCursorIndices;
     final boolean wantValuesCreator;
-    final boolean wantTableInfo;
 
+    final boolean wantTableInfo;
     final Set<Element> beforeCreated, afterCreated;
 
     public CursorObjectClassInfo(Elements elements, TypeElement objectType) {
+        this.elements = elements;
         this.objectType = objectType;
         objectClassName = ClassName.get(objectType);
         final CursorObject annotation = objectType.getAnnotation(CursorObject.class);
@@ -68,7 +71,7 @@ public class CursorObjectClassInfo {
         if (modifiers.contains(Modifier.PROTECTED)) {
             throw modifierNotAllowed(Modifier.PROTECTED, field);
         }
-        final CursorFieldInfo fieldInfo = new CursorFieldInfo(field);
+        final CursorFieldInfo fieldInfo = new CursorFieldInfo(elements, field);
 
         ClassName converterName;
         try {
@@ -128,12 +131,14 @@ public class CursorObjectClassInfo {
         final String indexFieldName;
         final String columnName;
         final CursorField annotation;
+        final boolean nonNull;
 
         final TypeName type;
 
-        public CursorFieldInfo(VariableElement field) {
+        public CursorFieldInfo(Elements elements, VariableElement field) {
             type = TypeName.get(field.asType());
             annotation = field.getAnnotation(CursorField.class);
+            nonNull = hasAnnotation(elements, field.getAnnotationMirrors(), "android.support.annotation.NonNull");
             columnName = annotation.value();
             objectFieldName = String.valueOf(field.getSimpleName());
             if (annotation.indexFieldName().length() > 0) {
@@ -141,6 +146,19 @@ public class CursorObjectClassInfo {
             } else {
                 indexFieldName = objectFieldName;
             }
+        }
+
+        private boolean hasAnnotation(Elements elements, List<? extends AnnotationMirror> list, String name) {
+            if (list == null) return false;
+            Element actionElement = elements.getTypeElement(name);
+            TypeMirror actionType = actionElement.asType();
+            for (AnnotationMirror mirror : list) {
+                final DeclaredType annotationType = mirror.getAnnotationType();
+                if (annotationType.equals(actionType)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         @Override

@@ -99,11 +99,11 @@ public class TableInfoClassGenerator {
         } else if (fieldType == TypeName.CHAR) {
             return CursorField.INTEGER;
         } else if (fieldType.equals(CursorObjectClassInfo.STRING)) {
-            return CursorField.TEXT;
+            return fieldInfo.nonNull ? CursorField.TEXT_NOT_NULL : CursorField.TEXT;
         } else {
             final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName);
             if (converterClass != null) {
-                return CursorField.TEXT;
+                return fieldInfo.nonNull ? CursorField.TEXT_NOT_NULL : CursorField.TEXT;
             } else if (fieldType instanceof ArrayTypeName) {
                 if (((ArrayTypeName) fieldType).componentType == TypeName.BYTE) {
                     return CursorField.BLOB;
