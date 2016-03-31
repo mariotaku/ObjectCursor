@@ -16,21 +16,29 @@ import java.util.*;
  * Created by mariotaku on 15/11/27.
  */
 public class CursorObjectClassInfo {
-    public static final String VALUES_CREATOR_SUFFIX = "ValuesCreator";
+
     static final ClassName EMPTY_CONVERTER = ClassName.get(EmptyCursorFieldConverter.class);
+    static final ClassName STRING = ClassName.get(String.class);
+
     final TypeElement objectType;
     final ClassName objectClassName;
 
     final List<CursorFieldInfo> fieldInfoList;
     final Map<String, ClassName> converterMaps;
     final Set<TypeName> customTypes;
+    final boolean wantCursorIndices;
     final boolean wantValuesCreator;
-    Set<Element> beforeCreated, afterCreated;
+    final boolean wantTableInfo;
+
+    final Set<Element> beforeCreated, afterCreated;
 
     public CursorObjectClassInfo(Elements elements, TypeElement objectType) {
         this.objectType = objectType;
         objectClassName = ClassName.get(objectType);
-        wantValuesCreator = objectType.getAnnotation(CursorObject.class).valuesCreator();
+        final CursorObject annotation = objectType.getAnnotation(CursorObject.class);
+        wantCursorIndices = annotation.cursorIndices();
+        wantValuesCreator = annotation.valuesCreator();
+        wantTableInfo = annotation.tableInfo();
         fieldInfoList = new ArrayList<>();
         customTypes = new HashSet<>();
         converterMaps = new HashMap<>();
@@ -72,7 +80,7 @@ public class CursorObjectClassInfo {
         if (!EMPTY_CONVERTER.equals(converterName)) {
             // Custom data type
             converterMaps.put(fieldInfo.objectFieldName, converterName);
-            customTypes.add(ClassName.get(fieldInfo.type));
+            customTypes.add(fieldInfo.type);
         }
         fieldInfoList.add(fieldInfo);
         return fieldInfo;
@@ -107,12 +115,10 @@ public class CursorObjectClassInfo {
     }
 
     public Set<Element> beforeCreated() {
-        if (beforeCreated == null) return Collections.emptySet();
         return beforeCreated;
     }
 
     public Set<Element> afterCreated() {
-        if (afterCreated == null) return Collections.emptySet();
         return afterCreated;
     }
 
@@ -123,10 +129,10 @@ public class CursorObjectClassInfo {
         final String columnName;
         final CursorField annotation;
 
-        final TypeMirror type;
+        final TypeName type;
 
         public CursorFieldInfo(VariableElement field) {
-            type = field.asType();
+            type = TypeName.get(field.asType());
             annotation = field.getAnnotation(CursorField.class);
             columnName = annotation.value();
             objectFieldName = String.valueOf(field.getSimpleName());

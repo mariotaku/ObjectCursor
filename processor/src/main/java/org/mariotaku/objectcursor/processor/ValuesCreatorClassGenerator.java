@@ -24,7 +24,6 @@ import java.util.Locale;
 public class ValuesCreatorClassGenerator {
     public static final String VALUES_CREATOR_SUFFIX = "ValuesCreator";
 
-    static final ClassName STRING = ClassName.get(String.class);
     private final CursorObjectClassInfo objectClassInfo;
     private final ClassName creatorClassName;
     private final String creatorClassNameWithoutPackage;
@@ -78,7 +77,7 @@ public class ValuesCreatorClassGenerator {
         List<FieldSpec> fieldSpecs = new ArrayList<>();
         for (TypeName typeName : objectClassInfo.customTypes()) {
             // String field is not a custom type
-            if (STRING.equals(typeName)) continue;
+            if (CursorObjectClassInfo.STRING.equals(typeName)) continue;
             final FieldSpec.Builder builder = FieldSpec.builder(ParameterizedType.class,
                     getConverterFieldName(typeName), Modifier.FINAL, Modifier.STATIC);
             if (typeName instanceof ParameterizedTypeName) {
@@ -114,7 +113,10 @@ public class ValuesCreatorClassGenerator {
 
         for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
             if (!fieldInfo.annotation.excludeWrite()) {
-                addSetValueStatement(builder, fieldInfo);
+                if (!addSetValueStatement(builder, fieldInfo)) {
+                    throw new UnsupportedFieldTypeException(String.format("Unsupported type %s in %s.%s", fieldInfo.type,
+                            objectClassInfo.objectClassName, fieldInfo.objectFieldName));
+                }
             }
         }
 
@@ -133,8 +135,8 @@ public class ValuesCreatorClassGenerator {
         return builder.build();
     }
 
-    private void addSetValueStatement(MethodSpec.Builder builder, CursorObjectClassInfo.CursorFieldInfo fieldInfo) {
-        TypeName fieldType = ClassName.get(fieldInfo.type);
+    private boolean addSetValueStatement(MethodSpec.Builder builder, CursorObjectClassInfo.CursorFieldInfo fieldInfo) {
+        TypeName fieldType = fieldInfo.type;
         try {
             fieldType = fieldType.unbox();
         } catch (UnsupportedOperationException e) {
@@ -142,27 +144,45 @@ public class ValuesCreatorClassGenerator {
         }
         if (fieldType == TypeName.BOOLEAN) {
             builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-        } else if (fieldType == TypeName.INT) {
+            return true;
+        } else if (fieldType == TypeName.BYTE) {
             builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-        } else if (fieldType == TypeName.LONG) {
-            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-        } else if (fieldType == TypeName.FLOAT) {
-            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-        } else if (fieldType == TypeName.DOUBLE) {
-            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
+            return true;
+        } else if (fieldType == TypeName.CHAR) {
+            builder.addStatement("values.put($S, (int) instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
+            return true;
         } else if (fieldType == TypeName.SHORT) {
             builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-        } else if (fieldType.equals(STRING)) {
+            return true;
+        } else if (fieldType == TypeName.INT) {
             builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
+            return true;
+        } else if (fieldType == TypeName.LONG) {
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
+            return true;
+        } else if (fieldType == TypeName.FLOAT) {
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
+            return true;
+        } else if (fieldType == TypeName.DOUBLE) {
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
+            return true;
+        } else if (fieldType.equals(CursorObjectClassInfo.STRING)) {
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
+            return true;
         } else {
             final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName);
-            if (converterClass == null) {
-
-            } else {
+            if (converterClass != null) {
                 builder.addStatement("$L.writeField(values, instance.$L, $S, $L)", getConverterFieldName(converterClass),
                         fieldInfo.objectFieldName, fieldInfo.columnName, getConverterFieldName(fieldType));
+                return true;
+            } else if (fieldType instanceof ArrayTypeName) {
+                if (((ArrayTypeName) fieldType).componentType == TypeName.BYTE) {
+                    builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
+                    return true;
+                }
             }
         }
+        return false;
     }
 
 

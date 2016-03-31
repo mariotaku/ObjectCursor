@@ -21,4 +21,13 @@ public @interface CursorField {
     boolean excludeWrite() default false;
 
     Class<? extends CursorFieldConverter> converter() default EmptyCursorFieldConverter.class;
+
+    String type() default AUTO;
+
+    String AUTO = "[AUTO]";
+    String TEXT = "TEXT";
+    String TEXT_NOT_NULL = "TEXT NOT NULL";
+    String INTEGER = "INTEGER";
+    String FLOAT = "FLOAT";
+    String BLOB = "BLOB";
 }

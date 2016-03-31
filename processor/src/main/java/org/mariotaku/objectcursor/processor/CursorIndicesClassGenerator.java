@@ -29,7 +29,6 @@ import java.util.Locale;
 public class CursorIndicesClassGenerator {
     public static final String CURSOR_INDICES_SUFFIX = "CursorIndices";
 
-    static final ClassName STRING = ClassName.get(String.class);
     private final CursorObjectClassInfo objectClassInfo;
     private final ClassName indicesClassName;
     private final String indicesClassNameWithoutPackage;
@@ -110,7 +109,7 @@ public class CursorIndicesClassGenerator {
         List<FieldSpec> fieldSpecs = new ArrayList<>();
         for (TypeName typeName : objectClassInfo.customTypes()) {
             // String field is not a custom type
-            if (STRING.equals(typeName)) continue;
+            if (CursorObjectClassInfo.STRING.equals(typeName)) continue;
             final FieldSpec.Builder builder = FieldSpec.builder(ParameterizedType.class,
                     getConverterFieldName(typeName), Modifier.FINAL, Modifier.STATIC);
             if (typeName instanceof ParameterizedTypeName) {
@@ -260,7 +259,7 @@ public class CursorIndicesClassGenerator {
     }
 
     private void addSetValueStatement(MethodSpec.Builder builder, CursorObjectClassInfo.CursorFieldInfo fieldInfo) {
-        TypeName fieldType = ClassName.get(fieldInfo.type);
+        TypeName fieldType = fieldInfo.type;
         try {
             fieldType = fieldType.unbox();
         } catch (UnsupportedOperationException e) {
@@ -278,7 +277,7 @@ public class CursorIndicesClassGenerator {
             builder.addStatement("instance.$L = cursor.getDouble($L)", fieldInfo.objectFieldName, fieldInfo.indexFieldName);
         } else if (fieldType == TypeName.SHORT) {
             builder.addStatement("instance.$L = cursor.getShort($L)", fieldInfo.objectFieldName, fieldInfo.indexFieldName);
-        } else if (fieldType.equals(STRING)) {
+        } else if (fieldType.equals(CursorObjectClassInfo.STRING)) {
             builder.addStatement("instance.$L = cursor.getString($L)", fieldInfo.objectFieldName, fieldInfo.indexFieldName);
         } else {
             final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName);

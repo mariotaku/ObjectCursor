@@ -35,6 +35,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import javax.tools.Diagnostic;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -70,13 +71,11 @@ public class AnnotationProcessor extends AbstractProcessor {
             final TypeElement type = (TypeElement) element.getEnclosingElement();
             final CursorObjectClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
             classInfo.addBeforeCreated(element);
-
         }
         for (Element element : roundEnv.getElementsAnnotatedWith(AfterCursorObjectCreated.class)) {
             final TypeElement type = (TypeElement) element.getEnclosingElement();
             final CursorObjectClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
             classInfo.addAfterCreated(element);
-
         }
         for (Element element : roundEnv.getElementsAnnotatedWith(CursorField.class)) {
             final VariableElement var = (VariableElement) element;
@@ -88,17 +87,23 @@ public class AnnotationProcessor extends AbstractProcessor {
         final Filer filer = processingEnv.getFiler();
         for (CursorObjectClassInfo classInfo : cursorObjectClasses.values()) {
             try {
-                CursorIndicesClassGenerator cursorIndicesClassGenerator = new CursorIndicesClassGenerator(classInfo, elements);
-                cursorIndicesClassGenerator.saveCursorIndicesFile(filer, elements, types);
+                if (classInfo.wantCursorIndices) {
+                    CursorIndicesClassGenerator cursorIndicesClassGenerator = new CursorIndicesClassGenerator(classInfo, elements);
+                    cursorIndicesClassGenerator.saveCursorIndicesFile(filer, elements, types);
+                }
                 if (classInfo.wantValuesCreator) {
                     ValuesCreatorClassGenerator valuesCreatorClassGenerator = new ValuesCreatorClassGenerator(classInfo, elements);
                     valuesCreatorClassGenerator.saveValuesCreatorFile(filer, elements, types);
+                }
+                if (classInfo.wantTableInfo) {
+                    TableInfoClassGenerator tableInfoClassGenerator = new TableInfoClassGenerator(classInfo, elements);
+                    tableInfoClassGenerator.saveValuesCreatorFile(filer, elements, types);
                 }
             } catch (IOException e) {
                 throw new IllegalStateException(e);
             }
         }
-        return false;
+        return true;
     }
 
     private CursorObjectClassInfo getOrThrow(HashMap<Name, CursorObjectClassInfo> cursorObjectClasses, Elements elements,
