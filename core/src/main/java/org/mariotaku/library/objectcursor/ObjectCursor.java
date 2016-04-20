@@ -84,9 +84,8 @@ public class ObjectCursor<E> extends AbstractList<E> {
         return mIndices;
     }
 
-    public Cursor getCursor(int position) {
+    public Cursor getCursor() {
         ensureCursor();
-        mCursor.moveToPosition(position);
         return mCursor;
     }
 
