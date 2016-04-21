@@ -24,6 +24,10 @@ public @interface CursorField {
 
     String type() default AUTO;
 
+    boolean useGetter() default true;
+
+    boolean useSetter() default true;
+
     String AUTO = "[AUTO]";
     String TEXT = "TEXT";
     String TEXT_NOT_NULL = "TEXT NOT NULL";

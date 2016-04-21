@@ -113,10 +113,7 @@ public class ValuesCreatorClassGenerator {
 
         for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
             if (!fieldInfo.annotation.excludeWrite()) {
-                if (!addSetValueStatement(builder, fieldInfo)) {
-                    throw new UnsupportedFieldTypeException(String.format("Unsupported type %s in %s.%s", fieldInfo.type,
-                            objectClassInfo.objectClassName, fieldInfo.objectFieldName));
-                }
+                addSetValueStatement(builder, fieldInfo);
             }
         }
 
@@ -135,54 +132,53 @@ public class ValuesCreatorClassGenerator {
         return builder.build();
     }
 
-    private boolean addSetValueStatement(MethodSpec.Builder builder, CursorObjectClassInfo.CursorFieldInfo fieldInfo) {
+    private void addSetValueStatement(MethodSpec.Builder builder, CursorObjectClassInfo.CursorFieldInfo fieldInfo)
+            throws UnsupportedFieldTypeException {
+        boolean supported = true;
         TypeName fieldType = fieldInfo.type;
         try {
             fieldType = fieldType.unbox();
         } catch (UnsupportedOperationException e) {
             // Ignore
         }
+        final String readAccessCode = fieldInfo.useGetter() ? fieldInfo.objectFieldGetter + "()" : fieldInfo.objectFieldName;
         if (fieldType == TypeName.BOOLEAN) {
-            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-            return true;
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, readAccessCode);
         } else if (fieldType == TypeName.BYTE) {
-            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-            return true;
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, readAccessCode);
         } else if (fieldType == TypeName.CHAR) {
-            builder.addStatement("values.put($S, (int) instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-            return true;
+            builder.addStatement("values.put($S, (int) instance.$L)", fieldInfo.columnName, readAccessCode);
         } else if (fieldType == TypeName.SHORT) {
-            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-            return true;
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, readAccessCode);
         } else if (fieldType == TypeName.INT) {
-            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-            return true;
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, readAccessCode);
         } else if (fieldType == TypeName.LONG) {
-            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-            return true;
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, readAccessCode);
         } else if (fieldType == TypeName.FLOAT) {
-            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-            return true;
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, readAccessCode);
         } else if (fieldType == TypeName.DOUBLE) {
-            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-            return true;
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, readAccessCode);
         } else if (fieldType.equals(CursorObjectClassInfo.STRING)) {
-            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-            return true;
+            builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, readAccessCode);
         } else {
             final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName);
             if (converterClass != null) {
                 builder.addStatement("$L.writeField(values, instance.$L, $S, $L)", getConverterFieldName(converterClass),
-                        fieldInfo.objectFieldName, fieldInfo.columnName, getConverterFieldName(fieldType));
-                return true;
+                        readAccessCode, fieldInfo.columnName, getConverterFieldName(fieldType));
             } else if (fieldType instanceof ArrayTypeName) {
                 if (((ArrayTypeName) fieldType).componentType == TypeName.BYTE) {
-                    builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, fieldInfo.objectFieldName);
-                    return true;
+                    builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, readAccessCode);
+                } else {
+                    supported = false;
                 }
+            } else {
+                supported = false;
             }
         }
-        return false;
+        if (!supported) {
+            throw new UnsupportedFieldTypeException(String.format("Unsupported type %s in %s.%s", fieldInfo.type,
+                    objectClassInfo.objectClassName, fieldInfo.objectFieldName));
+        }
     }
 
 

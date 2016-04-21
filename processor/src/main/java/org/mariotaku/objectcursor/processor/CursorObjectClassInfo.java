@@ -128,10 +128,17 @@ public class CursorObjectClassInfo {
     public static class CursorFieldInfo {
 
         final String objectFieldName;
+        final String objectFieldGetter;
+        final String objectFieldSetter;
+
         final String indexFieldName;
         final String columnName;
         final CursorField annotation;
         final boolean nonNull;
+
+        final boolean useGetter;
+        final boolean useSetter;
+
 
         final TypeName type;
 
@@ -141,6 +148,10 @@ public class CursorObjectClassInfo {
             nonNull = hasAnnotation(elements, field.getAnnotationMirrors(), "android.support.annotation.NonNull");
             columnName = annotation.value();
             objectFieldName = String.valueOf(field.getSimpleName());
+            objectFieldGetter = Utils.getGetter(field, elements);
+            objectFieldSetter = Utils.getSetter(field, elements);
+            useGetter = annotation.useGetter();
+            useSetter = annotation.useSetter();
             if (annotation.indexFieldName().length() > 0) {
                 indexFieldName = annotation.indexFieldName().replace('.', '_');
             } else {
@@ -161,6 +172,14 @@ public class CursorObjectClassInfo {
             return false;
         }
 
+        public boolean useGetter() {
+            return useGetter && objectFieldGetter != null;
+        }
+
+        public boolean useSetter() {
+            return useSetter && objectFieldSetter != null;
+        }
+
         @Override
         public String toString() {
             return "FieldInfo{" +
@@ -169,5 +188,9 @@ public class CursorObjectClassInfo {
                     '}';
         }
 
+        public String getReadAccessCode() {
+            if (useGetter()) return objectFieldGetter + "()";
+            return objectFieldName;
+        }
     }
 }

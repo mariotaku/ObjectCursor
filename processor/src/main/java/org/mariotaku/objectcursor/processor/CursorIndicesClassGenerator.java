@@ -258,39 +258,62 @@ public class CursorIndicesClassGenerator {
         return builder.build();
     }
 
-    private void addSetValueStatement(MethodSpec.Builder builder, CursorObjectClassInfo.CursorFieldInfo fieldInfo) {
+    private void addSetValueStatement(MethodSpec.Builder builder, CursorObjectClassInfo.CursorFieldInfo fieldInfo)
+            throws UnsupportedFieldTypeException {
+        boolean supported = true;
         TypeName fieldType = fieldInfo.type;
         try {
             fieldType = fieldType.unbox();
         } catch (UnsupportedOperationException e) {
             // Ignore
         }
+        if (fieldInfo.useSetter()) {
+            builder.addCode("instance.$L(", fieldInfo.objectFieldSetter);
+        } else {
+            builder.addCode("instance.$L = ", fieldInfo.objectFieldName);
+        }
         if (fieldType == TypeName.BOOLEAN) {
-            builder.addStatement("instance.$L = cursor.getShort($L) == 1", fieldInfo.objectFieldName, fieldInfo.indexFieldName);
+            builder.addCode("cursor.getShort($L) == 1", fieldInfo.indexFieldName);
         } else if (fieldType == TypeName.INT) {
-            builder.addStatement("instance.$L = cursor.getInt($L)", fieldInfo.objectFieldName, fieldInfo.indexFieldName);
+            builder.addCode("cursor.getInt($L)", fieldInfo.indexFieldName);
         } else if (fieldType == TypeName.LONG) {
-            builder.addStatement("instance.$L = cursor.getLong($L)", fieldInfo.objectFieldName, fieldInfo.indexFieldName);
+            builder.addCode("cursor.getLong($L)", fieldInfo.indexFieldName);
         } else if (fieldType == TypeName.FLOAT) {
-            builder.addStatement("instance.$L = cursor.getFloat($L)", fieldInfo.objectFieldName, fieldInfo.indexFieldName);
+            builder.addCode("cursor.getFloat($L)", fieldInfo.indexFieldName);
         } else if (fieldType == TypeName.DOUBLE) {
-            builder.addStatement("instance.$L = cursor.getDouble($L)", fieldInfo.objectFieldName, fieldInfo.indexFieldName);
+            builder.addCode("cursor.getDouble($L)", fieldInfo.indexFieldName);
         } else if (fieldType == TypeName.SHORT) {
-            builder.addStatement("instance.$L = cursor.getShort($L)", fieldInfo.objectFieldName, fieldInfo.indexFieldName);
+            builder.addCode("cursor.getShort($L)", fieldInfo.indexFieldName);
         } else if (fieldType.equals(CursorObjectClassInfo.STRING)) {
-            builder.addStatement("instance.$L = cursor.getString($L)", fieldInfo.objectFieldName, fieldInfo.indexFieldName);
+            builder.addCode("cursor.getString($L)", fieldInfo.indexFieldName);
         } else {
             final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName);
-            if (converterClass == null) {
-
-            } else if (!fieldInfo.columnName.isEmpty()) {
-                builder.addStatement("instance.$L = ($T) $L.parseField(cursor, $L, $L)", fieldInfo.objectFieldName,
-                        fieldType, getConverterFieldName(converterClass), fieldInfo.indexFieldName,
-                        getConverterFieldName(fieldType));
+            if (converterClass != null) {
+                if (!fieldInfo.columnName.isEmpty()) {
+                    builder.addCode("($T) $L.parseField(cursor, $L, $L)", fieldType,
+                            getConverterFieldName(converterClass), fieldInfo.indexFieldName,
+                            getConverterFieldName(fieldType));
+                } else {
+                    builder.addCode("($T) $L.parseField(cursor, $L, $L)", fieldType,
+                            getConverterFieldName(converterClass), -1, getConverterFieldName(fieldType));
+                }
+            } else if (fieldType instanceof ArrayTypeName) {
+                if (((ArrayTypeName) fieldType).componentType == TypeName.BYTE) {
+                    builder.addCode("cursor.getBlob($L)", fieldInfo.indexFieldName);
+                } else {
+                    supported = false;
+                }
             } else {
-                builder.addStatement("instance.$L = ($T) $L.parseField(cursor, $L, $L)", fieldInfo.objectFieldName,
-                        fieldType, getConverterFieldName(converterClass), -1, getConverterFieldName(fieldType));
+                supported = false;
             }
+        }
+        if (fieldInfo.useSetter()) {
+            builder.addCode(")");
+        }
+        builder.addStatement("");
+        if (!supported) {
+            throw new UnsupportedFieldTypeException(String.format("Unsupported type %s in %s.%s", fieldInfo.type,
+                    objectClassInfo.objectClassName, fieldInfo.objectFieldName));
         }
     }
 
