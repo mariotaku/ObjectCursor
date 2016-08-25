@@ -33,6 +33,7 @@ public class CursorObjectClassInfo {
 
     final boolean wantTableInfo;
     final Set<Element> beforeCreated, afterCreated;
+    final Set<Element> beforeValueWrite, afterValueWrite;
 
     public CursorObjectClassInfo(Elements elements, TypeElement objectType) {
         this.elements = elements;
@@ -47,6 +48,8 @@ public class CursorObjectClassInfo {
         converterMaps = new HashMap<>();
         beforeCreated = new HashSet<>();
         afterCreated = new HashSet<>();
+        beforeValueWrite = new HashSet<>();
+        afterValueWrite = new HashSet<>();
     }
 
     public static ClassName getSuffixedClassName(Elements elements, TypeElement cls, String suffix) {
@@ -107,6 +110,14 @@ public class CursorObjectClassInfo {
 
     public void addAfterCreated(Element element) {
         afterCreated.add(element);
+    }
+
+    public void addBeforeValueWrite(Element element) {
+        beforeValueWrite.add(element);
+    }
+
+    public void addAfterValueWrite(Element element) {
+        afterValueWrite.add(element);
     }
 
     public Set<ClassName> customConverters() {

@@ -6,6 +6,7 @@ import org.mariotaku.library.objectcursor.annotation.CursorObject;
 import org.mariotaku.library.objectcursor.internal.ParameterizedTypeImpl;
 
 import javax.annotation.processing.Filer;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
@@ -107,6 +108,10 @@ public class ValuesCreatorClassGenerator {
         builder.addParameter(objectClassInfo.objectClassName, "instance");
         builder.addParameter(ContentValues.class, "values");
 
+        for (Element element : objectClassInfo.beforeValueWrite) {
+            builder.addStatement("instance.$L(values)", element.getSimpleName());
+        }
+
         if (parentCreatorClass != null) {
             builder.addStatement("$T.writeTo(instance, values)", parentCreatorClass);
         }
@@ -115,6 +120,10 @@ public class ValuesCreatorClassGenerator {
             if (!fieldInfo.annotation.excludeWrite()) {
                 addSetValueStatement(builder, fieldInfo);
             }
+        }
+
+        for (Element element : objectClassInfo.afterValueWrite) {
+            builder.addStatement("instance.$L(values)", element.getSimpleName());
         }
 
         return builder.build();

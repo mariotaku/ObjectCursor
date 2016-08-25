@@ -20,10 +20,7 @@
 package org.mariotaku.objectcursor.processor;
 
 
-import org.mariotaku.library.objectcursor.annotation.AfterCursorObjectCreated;
-import org.mariotaku.library.objectcursor.annotation.BeforeCursorObjectCreated;
-import org.mariotaku.library.objectcursor.annotation.CursorField;
-import org.mariotaku.library.objectcursor.annotation.CursorObject;
+import org.mariotaku.library.objectcursor.annotation.*;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -35,7 +32,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -76,6 +72,16 @@ public class AnnotationProcessor extends AbstractProcessor {
             final TypeElement type = (TypeElement) element.getEnclosingElement();
             final CursorObjectClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
             classInfo.addAfterCreated(element);
+        }
+        for (Element element : roundEnv.getElementsAnnotatedWith(BeforeWriteContentValues.class)) {
+            final TypeElement type = (TypeElement) element.getEnclosingElement();
+            final CursorObjectClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
+            classInfo.addBeforeValueWrite(element);
+        }
+        for (Element element : roundEnv.getElementsAnnotatedWith(AfterWriteContentValues.class)) {
+            final TypeElement type = (TypeElement) element.getEnclosingElement();
+            final CursorObjectClassInfo classInfo = getOrThrow(cursorObjectClasses, elements, type);
+            classInfo.addAfterValueWrite(element);
         }
         for (Element element : roundEnv.getElementsAnnotatedWith(CursorField.class)) {
             final VariableElement var = (VariableElement) element;
