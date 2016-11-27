@@ -23,12 +23,13 @@ import android.database.Cursor;
 import android.database.CursorIndexOutOfBoundsException;
 import android.util.SparseArray;
 
+import java.io.Closeable;
 import java.util.AbstractList;
 
 /**
  * Created by mariotaku on 15/7/5.
  */
-public class ObjectCursor<E> extends AbstractList<E> {
+public class ObjectCursor<E> extends AbstractList<E> implements Closeable {
 
     private final Cursor mCursor;
     private final CursorIndices<E> mIndices;
@@ -43,18 +44,22 @@ public class ObjectCursor<E> extends AbstractList<E> {
     @Override
     public E get(final int location) {
         ensureCursor();
-        final int idxOfCache = mCache.indexOfKey(location);
-        if (idxOfCache >= 0) return mCache.valueAt(idxOfCache);
-        if (mCursor.moveToPosition(location)) {
-            final E object = get(mCursor, mIndices);
-            mCache.put(location, object);
-            return object;
+        synchronized (this) {
+            final int idxOfCache = mCache.indexOfKey(location);
+            if (idxOfCache >= 0) return mCache.valueAt(idxOfCache);
+            if (mCursor.moveToPosition(location)) {
+                final E object = get(mCursor, mIndices);
+                mCache.put(location, object);
+                return object;
+            }
+            throw new CursorIndexOutOfBoundsException("length=" + mCursor.getCount() + "; index=" + location);
         }
-        throw new CursorIndexOutOfBoundsException("length=" + mCursor.getCount() + "; index=" + location);
     }
 
     private void ensureCursor() {
-        if (mCursor.isClosed()) throw new IllegalStateException("Cursor is closed");
+        synchronized (this) {
+            if (mCursor.isClosed()) throw new IllegalStateException("Cursor is closed");
+        }
     }
 
     protected E get(final Cursor cursor, final CursorIndices<E> indices) {
@@ -63,7 +68,9 @@ public class ObjectCursor<E> extends AbstractList<E> {
 
     @Override
     public int size() {
-        return mCursor.getCount();
+        synchronized (this) {
+            return mCursor.getCount();
+        }
     }
 
     @Override
@@ -73,11 +80,16 @@ public class ObjectCursor<E> extends AbstractList<E> {
     }
 
     public boolean isClosed() {
-        return mCursor.isClosed();
+        synchronized (this) {
+            return mCursor.isClosed();
+        }
     }
 
+    @Override
     public void close() {
-        mCursor.close();
+        synchronized (this) {
+            mCursor.close();
+        }
     }
 
     public CursorIndices<E> getIndices() {
@@ -86,7 +98,9 @@ public class ObjectCursor<E> extends AbstractList<E> {
 
     public Cursor getCursor() {
         ensureCursor();
-        return mCursor;
+        synchronized (this) {
+            return mCursor;
+        }
     }
 
     public interface CursorIndices<T> {
