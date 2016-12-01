@@ -107,6 +107,7 @@ public class ValuesCreatorClassGenerator {
         builder.addModifiers(Modifier.STATIC);
         builder.addParameter(objectClassInfo.objectClassName, "instance");
         builder.addParameter(ContentValues.class, "values");
+        builder.addException(IOException.class);
 
         for (Element element : objectClassInfo.beforeValueWrite) {
             builder.addStatement("instance.$L(values)", element.getSimpleName());
@@ -133,6 +134,7 @@ public class ValuesCreatorClassGenerator {
         final MethodSpec.Builder builder = MethodSpec.methodBuilder("create");
         builder.addModifiers(Modifier.PUBLIC, Modifier.STATIC);
         builder.addParameter(objectClassInfo.objectClassName, "object");
+        builder.addException(IOException.class);
         builder.returns(ContentValues.class);
 
         builder.addStatement("$T values = new $T()", ContentValues.class, ContentValues.class);

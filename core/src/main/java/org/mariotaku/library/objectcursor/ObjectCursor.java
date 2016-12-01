@@ -24,6 +24,7 @@ import android.database.CursorIndexOutOfBoundsException;
 import android.util.SparseArray;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.AbstractList;
 
 /**
@@ -48,7 +49,12 @@ public class ObjectCursor<E> extends AbstractList<E> implements Closeable {
             final int idxOfCache = mCache.indexOfKey(location);
             if (idxOfCache >= 0) return mCache.valueAt(idxOfCache);
             if (mCursor.moveToPosition(location)) {
-                final E object = get(mCursor, mIndices);
+                final E object;
+                try {
+                    object = get(mCursor, mIndices);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
                 mCache.put(location, object);
                 return object;
             }
@@ -62,7 +68,7 @@ public class ObjectCursor<E> extends AbstractList<E> implements Closeable {
         }
     }
 
-    protected E get(final Cursor cursor, final CursorIndices<E> indices) {
+    protected E get(final Cursor cursor, final CursorIndices<E> indices) throws IOException {
         return indices.newObject(cursor);
     }
 
@@ -105,13 +111,13 @@ public class ObjectCursor<E> extends AbstractList<E> implements Closeable {
 
     public interface CursorIndices<T> {
 
-        T newObject(Cursor cursor);
+        T newObject(Cursor cursor) throws IOException;
 
-        void parseFields(T instance, Cursor cursor);
+        void parseFields(T instance, Cursor cursor) throws IOException;
 
-        void callBeforeCreated(T instance);
+        void callBeforeCreated(T instance) throws IOException;
 
-        void callAfterCreated(T instance);
+        void callAfterCreated(T instance) throws IOException;
 
     }
 

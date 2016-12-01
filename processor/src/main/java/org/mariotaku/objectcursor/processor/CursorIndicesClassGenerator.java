@@ -178,6 +178,7 @@ public class CursorIndicesClassGenerator {
         builder.addAnnotation(Override.class);
         builder.addModifiers(Modifier.PUBLIC);
         builder.addParameter(Cursor.class, "cursor");
+        builder.addException(IOException.class);
         ClassName objectType = ClassName.get(objectClassInfo.objectType);
         builder.returns(objectClassInfo.objectClassName);
 
@@ -194,6 +195,7 @@ public class CursorIndicesClassGenerator {
         builder.addAnnotation(Override.class);
         builder.addModifiers(Modifier.PUBLIC);
         builder.addParameter(objectClassInfo.objectClassName, "instance");
+        builder.addException(IOException.class);
 
         if (parentIndicesClass != null) {
             builder.addStatement("parentIndices.callBeforeCreated(instance)");
@@ -211,6 +213,7 @@ public class CursorIndicesClassGenerator {
         builder.addAnnotation(Override.class);
         builder.addModifiers(Modifier.PUBLIC);
         builder.addParameter(objectClassInfo.objectClassName, "instance");
+        builder.addException(IOException.class);
 
         for (Element element : objectClassInfo.afterCreated()) {
             builder.addStatement("instance.$L()", element.getSimpleName());
@@ -229,6 +232,7 @@ public class CursorIndicesClassGenerator {
         builder.addModifiers(Modifier.PUBLIC);
         builder.addParameter(objectClassInfo.objectClassName, "instance");
         builder.addParameter(Cursor.class, "cursor");
+        builder.addException(IOException.class);
 
         if (parentIndicesClass != null) {
             builder.addStatement("parentIndices.parseFields(instance, cursor)");
@@ -252,6 +256,7 @@ public class CursorIndicesClassGenerator {
         builder.addModifiers(Modifier.PUBLIC, Modifier.STATIC);
         builder.addParameter(Cursor.class, "cursor");
         builder.returns(objectClassInfo.objectClassName);
+        builder.addException(IOException.class);
 
         builder.addStatement("$T indices = new $T(cursor)", indicesClassName, indicesClassName);
         builder.addStatement("return indices.newObject(cursor)");
