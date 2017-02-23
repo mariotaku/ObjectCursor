@@ -1,17 +1,25 @@
 package org.mariotaku.objectcursor.processor;
 
-import com.squareup.javapoet.*;
+import com.squareup.javapoet.ArrayTypeName;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeSpec;
+
 import org.mariotaku.library.objectcursor.annotation.CursorField;
+
+import java.io.IOException;
+import java.io.Writer;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.JavaFileObject;
-import java.io.IOException;
-import java.io.Writer;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Created by mariotaku on 16/3/31.
@@ -51,6 +59,7 @@ public class TableInfoClassGenerator {
         init.indent();
         Set<String> columnNames = new HashSet<>();
         for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+            if (fieldInfo.annotation.excludeInfo()) continue;
             if (!columnNames.add(fieldInfo.columnName)) {
                 throw new DuplicateColumnException(String.format("Duplicate column %s.%s -> %s",
                         objectClassInfo.objectClassName, fieldInfo.objectFieldName, fieldInfo.columnName));
@@ -70,6 +79,7 @@ public class TableInfoClassGenerator {
         init.add("{\n");
         init.indent();
         for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+            if (fieldInfo.annotation.excludeInfo()) continue;
             init.add("$S, // $L\n", getColumnType(fieldInfo), fieldInfo.columnName);
         }
         init.unindent();

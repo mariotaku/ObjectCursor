@@ -18,7 +18,15 @@ public @interface CursorField {
 
     String indexFieldName() default "";
 
+    /**
+     * If true, this column will not write to ContentValues
+     */
     boolean excludeWrite() default false;
+
+    /**
+     * If true, this column will be excluded in TableInfo
+     */
+    boolean excludeInfo() default false;
 
     Class<? extends CursorFieldConverter> converter() default EmptyCursorFieldConverter.class;
 
