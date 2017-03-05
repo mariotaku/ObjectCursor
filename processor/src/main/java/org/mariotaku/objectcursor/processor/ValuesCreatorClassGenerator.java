@@ -1,9 +1,26 @@
 package org.mariotaku.objectcursor.processor;
 
 import android.content.ContentValues;
-import com.squareup.javapoet.*;
+
+import com.squareup.javapoet.ArrayTypeName;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeSpec;
+
+import org.mariotaku.library.objectcursor.ObjectCursor;
 import org.mariotaku.library.objectcursor.annotation.CursorObject;
 import org.mariotaku.library.objectcursor.internal.ParameterizedTypeImpl;
+
+import java.io.IOException;
+import java.io.Writer;
+import java.lang.reflect.ParameterizedType;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
@@ -12,18 +29,13 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.JavaFileObject;
-import java.io.IOException;
-import java.io.Writer;
-import java.lang.reflect.ParameterizedType;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+
+import static org.mariotaku.library.objectcursor.ObjectCursor.ValuesCreator.VALUES_CREATOR_SUFFIX;
 
 /**
  * Created by mariotaku on 15/11/28.
  */
 public class ValuesCreatorClassGenerator {
-    public static final String VALUES_CREATOR_SUFFIX = "ValuesCreator";
 
     private final CursorObjectClassInfo objectClassInfo;
     private final ClassName creatorClassName;
@@ -42,6 +54,7 @@ public class ValuesCreatorClassGenerator {
     }
 
     void writeContent(Appendable appendable, Elements elements, Types types) throws IOException {
+        final TypeName typeName = ClassName.get(objectClassInfo.getPackageName(), creatorClassNameWithoutPackage);
         final TypeSpec.Builder builder = TypeSpec.classBuilder(creatorClassNameWithoutPackage);
         TypeElement superClass = (TypeElement) types.asElement(objectClassInfo.getSuperclass());
 
@@ -51,11 +64,19 @@ public class ValuesCreatorClassGenerator {
             parentCreatorClass = CursorObjectClassInfo.getSuffixedClassName(elements, superClass, VALUES_CREATOR_SUFFIX);
         }
 
+        builder.addSuperinterface(ParameterizedTypeName.get(ClassName.get(ObjectCursor.ValuesCreator.class), objectClassInfo.objectClassName));
+
         builder.addModifiers(Modifier.PUBLIC);
+
+        builder.addField(FieldSpec.builder(typeName, "INSTANCE", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                .initializer("new $T()", typeName)
+                .build());
 
         builder.addFields(getConverterFields());
 
         builder.addFields(getTypeFields());
+
+        builder.addMethod(MethodSpec.constructorBuilder().build());
 
         builder.addMethod(createWriteToMethod(parentCreatorClass));
 
@@ -103,8 +124,8 @@ public class ValuesCreatorClassGenerator {
 
     private MethodSpec createWriteToMethod(ClassName parentCreatorClass) {
         final MethodSpec.Builder builder = MethodSpec.methodBuilder("writeTo");
+        builder.addAnnotation(Override.class);
         builder.addModifiers(Modifier.PUBLIC);
-        builder.addModifiers(Modifier.STATIC);
         builder.addParameter(objectClassInfo.objectClassName, "instance");
         builder.addParameter(ContentValues.class, "values");
         builder.addException(IOException.class);
@@ -114,7 +135,7 @@ public class ValuesCreatorClassGenerator {
         }
 
         if (parentCreatorClass != null) {
-            builder.addStatement("$T.writeTo(instance, values)", parentCreatorClass);
+            builder.addStatement("$T.INSTANCE.writeTo(instance, values)", parentCreatorClass);
         }
 
         for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
@@ -132,7 +153,8 @@ public class ValuesCreatorClassGenerator {
 
     private MethodSpec createCreateMethod() {
         final MethodSpec.Builder builder = MethodSpec.methodBuilder("create");
-        builder.addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+        builder.addAnnotation(Override.class);
+        builder.addModifiers(Modifier.PUBLIC);
         builder.addParameter(objectClassInfo.objectClassName, "object");
         builder.addException(IOException.class);
         builder.returns(ContentValues.class);

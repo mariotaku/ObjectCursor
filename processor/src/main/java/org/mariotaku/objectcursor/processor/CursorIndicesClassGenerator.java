@@ -1,11 +1,27 @@
 package org.mariotaku.objectcursor.processor;
 
 import android.database.Cursor;
-import com.squareup.javapoet.*;
+
+import com.squareup.javapoet.ArrayTypeName;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeSpec;
+
 import org.mariotaku.library.objectcursor.ObjectCursor;
 import org.mariotaku.library.objectcursor.annotation.CursorField;
 import org.mariotaku.library.objectcursor.annotation.CursorObject;
 import org.mariotaku.library.objectcursor.internal.ParameterizedTypeImpl;
+
+import java.io.IOException;
+import java.io.Writer;
+import java.lang.reflect.ParameterizedType;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
@@ -16,18 +32,13 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.JavaFileObject;
-import java.io.IOException;
-import java.io.Writer;
-import java.lang.reflect.ParameterizedType;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+
+import static org.mariotaku.library.objectcursor.ObjectCursor.CursorIndices.CURSOR_INDICES_SUFFIX;
 
 /**
  * Created by mariotaku on 15/11/28.
  */
 public class CursorIndicesClassGenerator {
-    public static final String CURSOR_INDICES_SUFFIX = "CursorIndices";
 
     private final CursorObjectClassInfo objectClassInfo;
     private final ClassName indicesClassName;
@@ -90,7 +101,7 @@ public class CursorIndicesClassGenerator {
 
         builder.addMethod(createParseFieldsMethod(parentIndicesClass));
 
-        builder.addMethod(createFromCursorMethod());
+        builder.addMethod(createGetIndexMethod());
 
         JavaFile.builder(objectClassInfo.getPackageName(), builder.build()).build().writeTo(appendable);
     }
@@ -251,15 +262,18 @@ public class CursorIndicesClassGenerator {
         return builder.build();
     }
 
-    private MethodSpec createFromCursorMethod() {
-        final MethodSpec.Builder builder = MethodSpec.methodBuilder("fromCursor");
-        builder.addModifiers(Modifier.PUBLIC, Modifier.STATIC);
-        builder.addParameter(Cursor.class, "cursor");
-        builder.returns(objectClassInfo.objectClassName);
-        builder.addException(IOException.class);
-
-        builder.addStatement("$T indices = new $T(cursor)", indicesClassName, indicesClassName);
-        builder.addStatement("return indices.newObject(cursor)");
+    private MethodSpec createGetIndexMethod() {
+        final MethodSpec.Builder builder = MethodSpec.methodBuilder("get");
+        builder.addAnnotation(Override.class);
+        builder.addModifiers(Modifier.PUBLIC);
+        builder.addParameter(String.class, "columnName");
+        builder.returns(int.class);
+        builder.addCode("switch (columnName) {");
+        for (final CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+            builder.addCode("  case $S: return $L;", fieldInfo.columnName, fieldInfo.indexFieldName);
+        }
+        builder.addCode("}");
+        builder.addStatement("return -1");
         return builder.build();
     }
 

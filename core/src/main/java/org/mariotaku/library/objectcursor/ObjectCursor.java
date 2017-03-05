@@ -19,6 +19,7 @@
 
 package org.mariotaku.library.objectcursor;
 
+import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.CursorIndexOutOfBoundsException;
 import android.util.SparseArray;
@@ -109,7 +110,30 @@ public class ObjectCursor<E> extends AbstractList<E> implements Closeable {
         }
     }
 
+    public static <T> CursorIndices<T> indicesFrom(Cursor cursor, Class<T> cls) {
+        try {
+            //noinspection unchecked
+            Class<CursorIndices<T>> indicesClass = (Class<CursorIndices<T>>)
+                    Class.forName(cls.getName() + CursorIndices.CURSOR_INDICES_SUFFIX);
+            return indicesClass.getConstructor(Cursor.class).newInstance(cursor);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static <T> ValuesCreator<T> valuesCreatorFrom(Class<T> cls) {
+        try {
+            Class<?> indicesClass = Class.forName(cls.getName() + CursorIndices.CURSOR_INDICES_SUFFIX);
+            //noinspection unchecked
+            return (ValuesCreator<T>) indicesClass.getDeclaredField("INSTANCE").get(null);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public interface CursorIndices<T> {
+
+        String CURSOR_INDICES_SUFFIX = "CursorIndices";
 
         T newObject(Cursor cursor) throws IOException;
 
@@ -118,6 +142,18 @@ public class ObjectCursor<E> extends AbstractList<E> implements Closeable {
         void callBeforeCreated(T instance) throws IOException;
 
         void callAfterCreated(T instance) throws IOException;
+
+        int get(String columnName);
+
+    }
+
+    public interface ValuesCreator<T> {
+
+        String VALUES_CREATOR_SUFFIX = "ValuesCreator";
+
+        void writeTo(T instance, ContentValues values) throws IOException;
+
+        ContentValues create(T instance) throws IOException;
 
     }
 
