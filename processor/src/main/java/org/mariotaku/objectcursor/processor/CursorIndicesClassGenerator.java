@@ -268,11 +268,11 @@ public class CursorIndicesClassGenerator {
         builder.addModifiers(Modifier.PUBLIC);
         builder.addParameter(String.class, "columnName");
         builder.returns(int.class);
-        builder.addCode("switch (columnName) {");
+        builder.beginControlFlow("switch (columnName)");
         for (final CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
-            builder.addCode("  case $S: return $L;", fieldInfo.columnName, fieldInfo.indexFieldName);
+            builder.addStatement("  case $S: return $L", fieldInfo.columnName, fieldInfo.indexFieldName);
         }
-        builder.addCode("}");
+        builder.endControlFlow();
         builder.addStatement("return -1");
         return builder.build();
     }
