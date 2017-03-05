@@ -123,9 +123,9 @@ public class ObjectCursor<E> extends AbstractList<E> implements Closeable {
 
     public static <T> ValuesCreator<T> valuesCreatorFrom(Class<T> cls) {
         try {
-            Class<?> indicesClass = Class.forName(cls.getName() + CursorIndices.CURSOR_INDICES_SUFFIX);
+            Class<?> creatorClass = Class.forName(cls.getName() + ValuesCreator.VALUES_CREATOR_SUFFIX);
             //noinspection unchecked
-            return (ValuesCreator<T>) indicesClass.getDeclaredField("INSTANCE").get(null);
+            return (ValuesCreator<T>) creatorClass.getDeclaredField("INSTANCE").get(null);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
