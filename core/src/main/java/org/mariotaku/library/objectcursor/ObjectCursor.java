@@ -36,11 +36,17 @@ public class ObjectCursor<E> extends AbstractList<E> implements Closeable {
     private final Cursor mCursor;
     private final CursorIndices<E> mIndices;
     private final SparseArray<E> mCache;
+    private final boolean mUseCache;
 
     public ObjectCursor(Cursor cursor, CursorIndices<E> indies) {
+        this(cursor, indies, false);
+    }
+
+    public ObjectCursor(Cursor cursor, CursorIndices<E> indies, boolean useCache) {
         mCursor = cursor;
         mIndices = indies;
         mCache = new SparseArray<>();
+        mUseCache = useCache;
     }
 
     @Override
@@ -56,21 +62,13 @@ public class ObjectCursor<E> extends AbstractList<E> implements Closeable {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-                mCache.put(location, object);
+                if (mUseCache) {
+                    mCache.put(location, object);
+                }
                 return object;
             }
             throw new CursorIndexOutOfBoundsException("length=" + mCursor.getCount() + "; index=" + location);
         }
-    }
-
-    private void ensureCursor() {
-        synchronized (this) {
-            if (mCursor.isClosed()) throw new IllegalStateException("Cursor is closed");
-        }
-    }
-
-    protected E get(final Cursor cursor, final CursorIndices<E> indices) throws IOException {
-        return indices.newObject(cursor);
     }
 
     @Override
@@ -107,6 +105,30 @@ public class ObjectCursor<E> extends AbstractList<E> implements Closeable {
         ensureCursor();
         synchronized (this) {
             return mCursor;
+        }
+    }
+
+    public void setInto(final int location, final E object) {
+        ensureCursor();
+        synchronized (this) {
+            if (mCursor.moveToPosition(location)) {
+                try {
+                    mIndices.parseFields(object, mCursor);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            throw new CursorIndexOutOfBoundsException("length=" + mCursor.getCount() + "; index=" + location);
+        }
+    }
+
+    protected E get(final Cursor cursor, final CursorIndices<E> indices) throws IOException {
+        return indices.newObject(cursor);
+    }
+
+    private void ensureCursor() {
+        synchronized (this) {
+            if (mCursor.isClosed()) throw new IllegalStateException("Cursor is closed");
         }
     }
 
