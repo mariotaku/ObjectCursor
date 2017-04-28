@@ -273,11 +273,7 @@ public class CursorIndicesClassGenerator {
             builder.addStatement("  case $S: return $L", fieldInfo.columnName, fieldInfo.indexFieldName);
         }
         builder.endControlFlow();
-        if (objectClassInfo.hasParentClassInfo()) {
-            builder.addStatement("return parentIndices.get(columnName)");
-        } else {
-            builder.addStatement("return -1");
-        }
+        builder.addStatement("return -1");
         return builder.build();
     }
 
