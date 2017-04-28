@@ -87,7 +87,7 @@ public class ValuesCreatorClassGenerator {
 
     private List<FieldSpec> getConverterFields() {
         List<FieldSpec> fieldSpecs = new ArrayList<>();
-        for (ClassName converterClass : objectClassInfo.customConverters()) {
+        for (ClassName converterClass : objectClassInfo.getCustomConverters()) {
             fieldSpecs.add(FieldSpec.builder(converterClass, getConverterFieldName(converterClass), Modifier.FINAL, Modifier.STATIC)
                     .initializer("new $T()", converterClass)
                     .build());
@@ -97,7 +97,7 @@ public class ValuesCreatorClassGenerator {
 
     private List<FieldSpec> getTypeFields() {
         List<FieldSpec> fieldSpecs = new ArrayList<>();
-        for (TypeName typeName : objectClassInfo.customTypes()) {
+        for (TypeName typeName : objectClassInfo.getCustomTypes()) {
             // String field is not a custom type
             if (CursorObjectClassInfo.STRING.equals(typeName)) continue;
             final FieldSpec.Builder builder = FieldSpec.builder(ParameterizedType.class,
@@ -138,7 +138,7 @@ public class ValuesCreatorClassGenerator {
             builder.addStatement("$T.INSTANCE.writeTo(instance, values)", parentCreatorClass);
         }
 
-        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.getFieldInfoList()) {
             if (!fieldInfo.annotation.excludeWrite()) {
                 addSetValueStatement(builder, fieldInfo);
             }
@@ -194,7 +194,8 @@ public class ValuesCreatorClassGenerator {
         } else if (fieldType.equals(CursorObjectClassInfo.STRING)) {
             builder.addStatement("values.put($S, instance.$L)", fieldInfo.columnName, readAccessCode);
         } else {
-            final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName);
+            final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName,
+                    false);
             if (converterClass != null) {
                 builder.addStatement("$L.writeField(values, instance.$L, $S, $L)", getConverterFieldName(converterClass),
                         readAccessCode, fieldInfo.columnName, getConverterFieldName(fieldType));

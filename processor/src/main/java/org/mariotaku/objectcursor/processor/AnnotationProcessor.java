@@ -20,22 +20,29 @@
 package org.mariotaku.objectcursor.processor;
 
 
-import org.mariotaku.library.objectcursor.annotation.*;
+import com.squareup.javapoet.TypeName;
+
+import org.mariotaku.library.objectcursor.annotation.AfterCursorObjectCreated;
+import org.mariotaku.library.objectcursor.annotation.AfterWriteContentValues;
+import org.mariotaku.library.objectcursor.annotation.BeforeCursorObjectCreated;
+import org.mariotaku.library.objectcursor.annotation.BeforeWriteContentValues;
+import org.mariotaku.library.objectcursor.annotation.CursorField;
+import org.mariotaku.library.objectcursor.annotation.CursorObject;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
 
 public class AnnotationProcessor extends AbstractProcessor {
 
@@ -55,13 +62,14 @@ public class AnnotationProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        HashMap<Name, CursorObjectClassInfo> cursorObjectClasses = new HashMap<>();
+        HashMap<TypeName, CursorObjectClassInfo> cursorObjectClasses = new HashMap<>();
         final Elements elements = processingEnv.getElementUtils();
         final Types types = processingEnv.getTypeUtils();
         for (Element element : roundEnv.getElementsAnnotatedWith(CursorObject.class)) {
             final TypeElement type = (TypeElement) element;
             final CursorObjectClassInfo classInfo = new CursorObjectClassInfo(elements, type);
-            cursorObjectClasses.put(type.getQualifiedName(), classInfo);
+
+            cursorObjectClasses.put(TypeName.get(type.asType()), classInfo);
         }
         for (Element element : roundEnv.getElementsAnnotatedWith(BeforeCursorObjectCreated.class)) {
             final TypeElement type = (TypeElement) element.getEnclosingElement();
@@ -91,6 +99,9 @@ public class AnnotationProcessor extends AbstractProcessor {
         }
 
         final Filer filer = processingEnv.getFiler();
+        for (CursorObjectClassInfo info : cursorObjectClasses.values()) {
+            info.completeParentInfo(cursorObjectClasses);
+        }
         for (CursorObjectClassInfo classInfo : cursorObjectClasses.values()) {
             try {
                 if (classInfo.wantCursorIndices) {
@@ -112,9 +123,9 @@ public class AnnotationProcessor extends AbstractProcessor {
         return true;
     }
 
-    private CursorObjectClassInfo getOrThrow(HashMap<Name, CursorObjectClassInfo> cursorObjectClasses, Elements elements,
+    private CursorObjectClassInfo getOrThrow(HashMap<TypeName, CursorObjectClassInfo> cursorObjectClasses, Elements elements,
                                              TypeElement type) {
-        final CursorObjectClassInfo classInfo = cursorObjectClasses.get(type.getQualifiedName());
+        final CursorObjectClassInfo classInfo = cursorObjectClasses.get(TypeName.get(type.asType()));
         if (classInfo == null) {
             throw new NullPointerException("Must be annotated with @" + CursorObject.class.getSimpleName());
         }

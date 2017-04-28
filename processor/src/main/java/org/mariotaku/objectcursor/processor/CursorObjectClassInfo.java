@@ -2,16 +2,28 @@ package org.mariotaku.objectcursor.processor;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
+
 import org.mariotaku.library.objectcursor.annotation.CursorField;
 import org.mariotaku.library.objectcursor.annotation.CursorObject;
 import org.mariotaku.library.objectcursor.converter.EmptyCursorFieldConverter;
 
-import javax.lang.model.element.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
-import java.util.*;
 
 /**
  * Created by mariotaku on 15/11/27.
@@ -25,15 +37,19 @@ public class CursorObjectClassInfo {
     final TypeElement objectType;
 
     final ClassName objectClassName;
+
+
     final List<CursorFieldInfo> fieldInfoList;
-    final Map<String, ClassName> converterMaps;
-    final Set<TypeName> customTypes;
+    private final Map<String, ClassName> converterMaps;
+    private final Set<TypeName> customTypes;
     final boolean wantCursorIndices;
     final boolean wantValuesCreator;
 
     final boolean wantTableInfo;
     final Set<Element> beforeCreated, afterCreated;
     final Set<Element> beforeValueWrite, afterValueWrite;
+
+    CursorObjectClassInfo parentClassInfo;
 
     public CursorObjectClassInfo(Elements elements, TypeElement objectType) {
         this.elements = elements;
@@ -58,8 +74,12 @@ public class CursorObjectClassInfo {
         return ClassName.get(packageName, binaryName.substring(packageName.length() + 1) + suffix);
     }
 
-    public ClassName getConverter(String name) {
-        return converterMaps.get(name);
+    public ClassName getConverter(String name, boolean findParent) {
+        ClassName converter = converterMaps.get(name);
+        if (findParent && converter == null && parentClassInfo != null) {
+            converter = parentClassInfo.getConverter(name, true);
+        }
+        return converter;
     }
 
     public CursorFieldInfo addField(VariableElement field) {
@@ -120,20 +140,44 @@ public class CursorObjectClassInfo {
         afterValueWrite.add(element);
     }
 
-    public Set<ClassName> customConverters() {
+    public Set<ClassName> getCustomConverters() {
         return new HashSet<>(converterMaps.values());
     }
 
-    public Set<TypeName> customTypes() {
+    public Set<TypeName> getCustomTypes() {
         return customTypes;
     }
 
-    public Set<Element> beforeCreated() {
+    public Set<Element> getBeforeCreated() {
         return beforeCreated;
     }
 
-    public Set<Element> afterCreated() {
+    public Set<Element> getAfterCreated() {
         return afterCreated;
+    }
+
+    public List<CursorFieldInfo> getFieldInfoList() {
+        return fieldInfoList;
+    }
+
+    public List<CursorFieldInfo> getFieldInfoListIncludingParents() {
+        List<CursorFieldInfo> result = new ArrayList<>();
+        if (parentClassInfo != null) {
+            result.addAll(parentClassInfo.getFieldInfoListIncludingParents());
+        }
+        result.addAll(fieldInfoList);
+        return result;
+    }
+
+    public void completeParentInfo(HashMap<TypeName, CursorObjectClassInfo> classes) {
+        CursorObjectClassInfo info = classes.get(TypeName.get(getSuperclass()));
+        if (info == null) return;
+        parentClassInfo = info;
+        info.completeParentInfo(classes);
+    }
+
+    public boolean hasParentClassInfo() {
+        return parentClassInfo != null;
     }
 
     public static class CursorFieldInfo {

@@ -108,7 +108,7 @@ public class CursorIndicesClassGenerator {
 
     private List<FieldSpec> getConverterFields() {
         List<FieldSpec> fieldSpecs = new ArrayList<>();
-        for (ClassName converterClass : objectClassInfo.customConverters()) {
+        for (ClassName converterClass : objectClassInfo.getCustomConverters()) {
             fieldSpecs.add(FieldSpec.builder(converterClass, getConverterFieldName(converterClass), Modifier.FINAL, Modifier.STATIC)
                     .initializer("new $T()", converterClass)
                     .build());
@@ -118,7 +118,7 @@ public class CursorIndicesClassGenerator {
 
     private List<FieldSpec> getTypeFields() {
         List<FieldSpec> fieldSpecs = new ArrayList<>();
-        for (TypeName typeName : objectClassInfo.customTypes()) {
+        for (TypeName typeName : objectClassInfo.getCustomTypes()) {
             // String field is not a custom type
             if (CursorObjectClassInfo.STRING.equals(typeName)) continue;
             final FieldSpec.Builder builder = FieldSpec.builder(ParameterizedType.class,
@@ -152,7 +152,7 @@ public class CursorIndicesClassGenerator {
                         .build());
             }
 
-        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.getFieldInfoList()) {
             if (fieldInfo.columnName.isEmpty()) continue;
             fieldSpecs.add(FieldSpec.builder(TypeName.INT, fieldInfo.indexFieldName, Modifier.PUBLIC)
                     .initializer("-1")
@@ -175,7 +175,7 @@ public class CursorIndicesClassGenerator {
                 builder.addStatement("this.$L = parentIndices.$L", superField, superField);
             }
         }
-        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.getFieldInfoList()) {
             if (fieldInfo.columnName.isEmpty()) continue;
             builder.addStatement("this.$L = cursor.getColumnIndex($S)", fieldInfo.indexFieldName, fieldInfo.columnName);
         }
@@ -212,7 +212,7 @@ public class CursorIndicesClassGenerator {
             builder.addStatement("parentIndices.callBeforeCreated(instance)");
         }
 
-        for (Element element : objectClassInfo.beforeCreated()) {
+        for (Element element : objectClassInfo.getBeforeCreated()) {
             builder.addStatement("instance.$L()", element.getSimpleName());
         }
 
@@ -226,7 +226,7 @@ public class CursorIndicesClassGenerator {
         builder.addParameter(objectClassInfo.objectClassName, "instance");
         builder.addException(IOException.class);
 
-        for (Element element : objectClassInfo.afterCreated()) {
+        for (Element element : objectClassInfo.getAfterCreated()) {
             builder.addStatement("instance.$L()", element.getSimpleName());
         }
 
@@ -249,7 +249,7 @@ public class CursorIndicesClassGenerator {
             builder.addStatement("parentIndices.parseFields(instance, cursor)");
         }
 
-        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.getFieldInfoList()) {
             if (fieldInfo.columnName.isEmpty()) {
                 addSetValueStatement(builder, fieldInfo);
             } else {
@@ -269,11 +269,15 @@ public class CursorIndicesClassGenerator {
         builder.addParameter(String.class, "columnName");
         builder.returns(int.class);
         builder.beginControlFlow("switch (columnName)");
-        for (final CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+        for (final CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.getFieldInfoListIncludingParents()) {
             builder.addStatement("  case $S: return $L", fieldInfo.columnName, fieldInfo.indexFieldName);
         }
         builder.endControlFlow();
-        builder.addStatement("return -1");
+        if (objectClassInfo.hasParentClassInfo()) {
+            builder.addStatement("return parentIndices.get(columnName)");
+        } else {
+            builder.addStatement("return -1");
+        }
         return builder.build();
     }
 
@@ -306,7 +310,8 @@ public class CursorIndicesClassGenerator {
         } else if (fieldType.equals(CursorObjectClassInfo.STRING)) {
             builder.addCode("cursor.getString($L)", fieldInfo.indexFieldName);
         } else {
-            final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName);
+            final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName,
+                    false);
             if (converterClass != null) {
                 if (!fieldInfo.columnName.isEmpty()) {
                     builder.addCode("($T) $L.parseField(cursor, $L, $L)", fieldType,

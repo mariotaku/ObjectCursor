@@ -58,7 +58,7 @@ public class TableInfoClassGenerator {
         init.add("{\n");
         init.indent();
         Set<String> columnNames = new HashSet<>();
-        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.getFieldInfoListIncludingParents()) {
             if (fieldInfo.annotation.excludeInfo()) continue;
             if (!columnNames.add(fieldInfo.columnName)) {
                 throw new DuplicateColumnException(String.format("Duplicate column %s.%s -> %s",
@@ -78,7 +78,7 @@ public class TableInfoClassGenerator {
         final CodeBlock.Builder init = CodeBlock.builder();
         init.add("{\n");
         init.indent();
-        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.fieldInfoList) {
+        for (CursorObjectClassInfo.CursorFieldInfo fieldInfo : objectClassInfo.getFieldInfoListIncludingParents()) {
             if (fieldInfo.annotation.excludeInfo()) continue;
             init.add("$S, // $L\n", getColumnType(fieldInfo), fieldInfo.columnName);
         }
@@ -111,7 +111,8 @@ public class TableInfoClassGenerator {
         } else if (fieldType.equals(CursorObjectClassInfo.STRING)) {
             return fieldInfo.nonNull ? CursorField.TEXT_NOT_NULL : CursorField.TEXT;
         } else {
-            final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName);
+            final ClassName converterClass = objectClassInfo.getConverter(fieldInfo.objectFieldName,
+                    true);
             if (converterClass != null) {
                 return fieldInfo.nonNull ? CursorField.TEXT_NOT_NULL : CursorField.TEXT;
             } else if (fieldType instanceof ArrayTypeName) {
