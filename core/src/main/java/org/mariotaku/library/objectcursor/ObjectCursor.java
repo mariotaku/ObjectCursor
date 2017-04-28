@@ -108,12 +108,13 @@ public class ObjectCursor<E> extends AbstractList<E> implements Closeable {
         }
     }
 
-    public void setInto(final int location, final E object) {
+    public E setInto(final int location, final E object) {
         ensureCursor();
         synchronized (this) {
             if (mCursor.moveToPosition(location)) {
                 try {
                     mIndices.parseFields(object, mCursor);
+                    return object;
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
